@@ -72,7 +72,7 @@ if st.button("Generate Marketing Suite ✨", type="primary"):
                 st.divider()
                 
                 # Render the markdown output directly to the UI
-                st.markdown(response.choices.message.content)
+                st.markdown(response.choices[0].message.content)
                 
             except Exception as e:
                 st.error(f"An error occurred: {e}")
