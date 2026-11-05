@@ -1,6 +1,11 @@
 import streamlit as st
 from openai import OpenAI
 
+import streamlit as st
+
+# Force the app to use the full width of the screen
+st.set_page_config(layout="wide")
+
 # 1. Page Configuration
 st.set_page_config(page_title="Instant Real Estate Copywriter", page_icon="🏠", layout="centered")
 
