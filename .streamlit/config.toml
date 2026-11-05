@@ -1,0 +1,7 @@
+[theme]
+primaryColor = "#0066CC"          # Professional blue for primary accents/buttons
+backgroundColor = "#F8F9FA"       # Clean, soft light-grey background (replaces the black)
+secondaryBackgroundColor = "#FFFFFF" # Crisp white for cards, sidebars, or input fields
+textColor = "#1A1D20"             # Deep slate text (highly legible and professional)
+font = "sans serif"               # Clean, modern typography
+borderRadius = "8px"              # Smooth, friendly rounded edges for widgets
