@@ -108,7 +108,7 @@ if st.button("Generate Complete Marketing Suite ✨", type="primary"):
                 st.divider()
                 
                 # Render the clean, long markdown document directly to the screen like the original version
-                st.markdown(response.choices.message.content)
+                st.markdown(response.choices[0].message.content)
                 
             except Exception as e:
                 st.error(f"An error occurred: {e}")
