@@ -7,23 +7,21 @@ st.set_page_config(page_title="Instant Real Estate Copywriter", page_icon="🏠"
 st.title("🏠 Real Estate Copy Generator")
 st.write("Turn raw property notes into a complete marketing suite instantly.")
 
-# 2. Secure API Key Management
-# In production, Streamlit looks for this in .streamlit/secrets.toml or deployment environment variables
-openai_api_key = st.sidebar.text_input("Enter OpenAI API Key", type="password")
-
-if not openai_api_key:
-    st.info("Please enter your OpenAI API key in the sidebar to get started.", icon="🔑")
+# 2. Secure Hidden API Key Management
+# This looks for the OPENAI_API_KEY you saved in your Streamlit Secrets setting
+try:
+    openai_api_key = st.secrets["OPENAI_API_KEY"]
+    client = OpenAI(api_key=openai_api_key)
+except Exception:
+    st.error("Setup Error: Please add your OPENAI_API_KEY to your Streamlit App Secrets.")
     st.stop()
-
-# Initialize OpenAI Client
-client = OpenAI(api_key=openai_api_key)
 
 # 3. User Input Section
 st.subheader("Property Details")
 raw_description = st.text_area(
     "Paste your raw property notes, bullet points, or MLS data here:",
     height=200,
-    placeholder="Example: 3 bed, 2.5 bath in North Austin. Built 2018. Quartz countertops, huge backyard, cul-de-sac. Needs minor carpet replacement in master bedroom. Walkable to coffee shop..."
+    placeholder="Example: 3 bed, 2.5 bath in North Austin. Built 2018. Quartz countertops, huge backyard, cul-de-sac. Walkable to coffee shop..."
 )
 
 # Optional style toggle
@@ -74,7 +72,7 @@ if st.button("Generate Marketing Suite ✨", type="primary"):
                 st.divider()
                 
                 # Render the markdown output directly to the UI
-                st.markdown(response.choices[0].message.content)
+                st.markdown(response.choices.message.content)
                 
             except Exception as e:
                 st.error(f"An error occurred: {e}")
