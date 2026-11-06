@@ -1,8 +1,6 @@
 import streamlit as st
 from openai import OpenAI
 
-import streamlit as st
-
 # Force the app to use the full width of the screen
 st.set_page_config(layout="wide")
 
