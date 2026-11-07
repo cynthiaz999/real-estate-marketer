@@ -4,7 +4,7 @@ from supabase import create_client, Client
 
 # 1. Page Configuration
 st.set_page_config(
-    page_title="PropCopyAI - 5-Second Real Estate Marketing Campaigns", 
+    page_title="PropMarketer - 5-Second Real Estate Marketing Campaigns", 
     page_icon="🏠", 
     layout="wide"
 )
@@ -37,7 +37,7 @@ if st.session_state["user_email"] is None:
     # Simple top bar navigation for existing users to sign in
     col_logo, col_login = st.columns([4, 1])
     with col_logo:
-        st.subheader("🏠 PropCopyAI")
+        st.subheader("🏠 PropMarketer")
     with col_login:
         # Subtle expander allowing existing users to jump straight past the landing page
         with st.popover("🔑 Existing User Login"):
@@ -54,7 +54,7 @@ if st.session_state["user_email"] is None:
 
     # Hero Section
     st.markdown("<h1 style='text-align: center;'>Stop writing real estate copy.</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: #4F46E5;'>Let AI build your 7-part marketing campaign in 5 seconds.</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #4F46E5;'>Build your 7-part marketing campaign in 5 seconds.</h3>", unsafe_allow_html=True)
     st.write("")
     
     # Core Call to Action Button
