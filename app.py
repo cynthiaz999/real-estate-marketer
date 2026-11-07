@@ -1,83 +1,183 @@
 import streamlit as st
 from openai import OpenAI
-
-# Force the app to use the full width of the screen
-st.set_page_config(layout="wide")
+from supabase import create_client, Client
 
 # 1. Page Configuration
-st.set_page_config(page_title="Instant Real Estate Copywriter", page_icon="🏠", layout="centered")
+st.set_page_config(
+    page_title="PropCopyAI - 5-Second Real Estate Marketing Campaigns", 
+    page_icon="🏠", 
+    layout="wide"
+)
 
-st.title("🏠 Real Estate Copy Generator")
-st.write("Turn raw property notes into a complete marketing suite instantly.")
-
-# 2. Secure Hidden API Key Management
-# This looks for the OPENAI_API_KEY you saved in your Streamlit Secrets setting
+# 2. Establish Secure Connections
 try:
     openai_api_key = st.secrets["OPENAI_API_KEY"]
     client = OpenAI(api_key=openai_api_key)
+    supabase_url = st.secrets["SUPABASE_URL"]
+    supabase_key = st.secrets["SUPABASE_KEY"]
+    supabase: Client = create_client(supabase_url, supabase_key)
 except Exception:
-    st.error("Setup Error: Please add your OPENAI_API_KEY to your Streamlit App Secrets.")
+    st.error("Setup Error: Please configure your Streamlit Secrets.")
     st.stop()
 
-# 3. User Input Section
-st.subheader("Property Details")
-raw_description = st.text_area(
-    "Paste your raw property notes, bullet points, or MLS data here:",
-    height=200,
-    placeholder="Example: 3 bed, 2.5 bath in North Austin. Built 2018. Quartz countertops, huge backyard, cul-de-sac. Walkable to coffee shop..."
-)
+TIER_LIMITS = {"free": 3, "basic": 30, "pro": 150}
 
-# Optional style toggle
-tone = st.selectbox("Select Marketing Tone", ["Enthusiastic & Luxury", "Casual & Warm", "Professional & Urgent"])
-
-# 4. The Magic Prompt & Generation Logic
-if st.button("Generate Marketing Suite ✨", type="primary"):
-    if not raw_description.strip():
-        st.error("Please provide some property details first.")
+# 3. Session State & URL Parameter Route Catching
+if "user_email" not in st.session_state:
+    # Check if user is returning from Stripe with an email parameter
+    if "email" in st.query_params:
+        st.session_state["user_email"] = st.query_params["email"]
     else:
-        # A highly structured system prompt ensures predictable, high-quality outputs
-        system_prompt = (
-            "You are an expert real estate copywriter. Your job is to take raw property information "
-            "and convert it into highly compelling marketing materials. Maintain a tone that is "
-            f"{tone}. Structure your output strictly with clear markdown headers for each requested piece."
+        st.session_state["user_email"] = None
+
+# ==========================================
+# 🛑 SCREEN A: THE PUBLIC LANDING PAGE
+# ==========================================
+if st.session_state["user_email"] is None:
+    # Simple top bar navigation for existing users to sign in
+    col_logo, col_login = st.columns([4, 1])
+    with col_logo:
+        st.subheader("🏠 PropCopyAI")
+    with col_login:
+        # Subtle expander allowing existing users to jump straight past the landing page
+        with st.popover("🔑 Existing User Login"):
+            existing_email = st.text_input("Enter your account email:")
+            if st.button("Unlock My Account"):
+                profile_check = supabase.table("profiles").select("*").eq("email", existing_email.strip()).execute()
+                if profile_check.data:
+                    st.session_state["user_email"] = existing_email.strip()
+                    st.rerun()
+                else:
+                    st.error("Account email not found.")
+
+    st.divider()
+
+    # Hero Section
+    st.markdown("<h1 style='text-align: center;'>Stop writing real estate copy.</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #4F46E5;'>Let AI build your 7-part marketing campaign in 5 seconds.</h3>", unsafe_allow_html=True)
+    st.write("")
+    
+    # Core Call to Action Button
+    col_cb1, col_cb2, col_cb3 = st.columns([1, 1, 1])
+    with col_cb2:
+        # Link this button to your Stripe Pricing/Checkout Link
+        st.link_button(
+            "🚀 Start Your 7-Day Free Trial", 
+            "https://stripe.com", 
+            use_container_width=True,
+            type="primary"
         )
-        
-        user_prompt = f"""
-        Analyze these property notes and generate the following items:
-        
-        1. **Post 1: Instagram (The Hook)** - Visually descriptive, heavy use of relevant emojis, clear Call to Action (CTA) to DM for details, includes relevant hashtags.
-        2. **Post 2: Facebook (The Story)** - A bit longer, focuses on the lifestyle / neighborhood vibe, family-friendly, clear CTA.
-        3. **Post 3: LinkedIn (The Investment)** - Focuses on the market value, architectural highlights, or investment potential. Professional tone.
-        4. **Post 4: TikTok/Reels Script** - A short, 30-second punchy video script outlining what to show on screen and what to say (Voiceover).
-        5. **Post 5: Just Listed Bulleted Summary** - A fast, scannable list of top features for quick reading.
-        6. **Email Newsletter Blast** - Includes a compelling Subject Line, a warm greeting, body copy expanding on the property benefits, Open House details placeholder, and a strong CTA button text.
-        7. **Print Flyer Text** - Bold headline, property summary, bulleted specs, and a footer placeholder for Realtor Contact Info.
+    st.write("")
+    st.divider()
 
-        ---
-        PROPERTY NOTES:
-        {raw_description}
-        """
+    # The Realtor Pain Points Section
+    st.markdown("### 😩 Why Realtors Waste Hours Every Week")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("#### 1. Writer's Block")
+        st.write("Staring at a blank screen trying to make a standard 3-bed suburban home sound like a hidden paradise.")
+    with col2:
+        st.markdown("#### 2. Fragmented Formats")
+        st.write("Rewriting the exact same property data over and over to fit MLS rules, Facebook guidelines, and email templates.")
+    with col3:
+        st.markdown("#### 3. Lead Delays")
+        st.write("Waiting days for an expensive copywriter or marketing assistant to return files while your listing goes cold.")
 
-        with st.spinner("AI is crafting your copy..."):
+    st.divider()
+
+    # Interactive Example Output Showcase
+    st.markdown("### ✨ See What You'll Generate Instantly")
+    with st.expander("🔍 Click to preview a sample 7-part suite output"):
+        st.markdown("""
+        ### 📋 1. Optimized MLS Description
+        *Stunning North Austin remodel featuring custom quartz counters, open-concept hosting spaces...*
+        
+        ### 📱 2. Instagram & Facebook Hook
+        *🏡 JUST LISTED! Skip the waitlist for this Austin gem. Swipe left for the kitchen views! #AustinRealEstate*
+        
+        ### 📧 3. Local Broker Email Blast
+        *Subject: Pocket listing energy in North Austin - Commission matching active...*
+        """)
+    st.stop()  # Enforces that nobody goes past this line without being authenticated!
+
+
+# ==========================================
+# 🎉 SCREEN B: THE PRIVATE GENERATION TOOL
+# ==========================================
+# This section only runs if st.session_state["user_email"] holds a valid value
+
+user_email = st.session_state["user_email"]
+
+# Fetch profile details
+try:
+    profile_data = supabase.table("profiles").select("*").eq("email", user_email).single().execute()
+    user_profile = profile_data.data
+    
+    # If the user completed Stripe but the webhook is delayed by a few milliseconds
+    if not user_profile:
+        st.warning("🔄 Finalizing your secure workspace setup... Give us one moment.")
+        st.button("Click to Refresh")
+        st.stop()
+        
+    tier = user_profile["subscription_tier"]
+    used = user_profile["generations_used"]
+except Exception as e:
+    st.error(f"Account syncing problem: {e}")
+    st.stop()
+
+limit = TIER_LIMITS.get(tier, 3)
+
+# App Sidebar Setup
+st.sidebar.header("🔐 Secure Workspace")
+st.sidebar.write(f"Active User: `{user_email}`")
+st.sidebar.markdown(f"Plan Tier: **{tier.upper()}**")
+st.sidebar.progress(used / limit if limit > 0 else 0)
+st.sidebar.write(f"Usage: {used} / {limit} runs used.")
+
+if st.sidebar.button("Log Out / Exit"):
+    st.session_state["user_email"] = None
+    st.query_params.clear()
+    st.rerun()
+
+# Gatekeeper: Out of credits logic
+if used >= limit:
+    st.error(f"🚨 **Monthly limit reached for your {tier.capitalize()} account status.**")
+    with st.container(border=True):
+        st.markdown("### 💎 Replenish Generation Credits Instantly")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Basic Agent Suite**\n\n30 generations/mo\n\n**$29/mo**")
+            st.link_button("Activate Basic Upgrade", f"https://stripe.com{user_email}")
+        with c2:
+            st.markdown("**Power Broker Suite ⭐**\n\n150 generations/mo\n\n**$59/mo**")
+            st.link_button("Activate Pro Upgrade", f"https://stripe.com{user_email}", type="primary")
+    st.stop()
+
+# Actual Tool Interface
+st.title("🚀 Your Campaign Suite Generator")
+raw_description = st.text_area("Paste MLS data, notes, or raw property layout characteristics:", height=150)
+tone = st.selectbox("Aesthetic Copy Tone", ["Luxury & Prestigious", "Warm & Inviting", "Modern & Punchy"])
+
+if st.button("Generate Complete 7-Part Suite ✨", type="primary"):
+    if not raw_description.strip():
+        st.error("Please insert property specifications first.")
+    else:
+        with st.spinner("Writing text structures..."):
             try:
-                # Call the OpenAI API using a fast, cost-effective model
+                system_prompt = f"You are a real estate marketer. Build a 7-part comprehensive marketing campaign matrix in a {tone} tone using clear headers."
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    temperature=0.7
+                    messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": raw_description}]
                 )
                 
-                # Display Output
-                st.success("Generation Complete!")
-                st.divider()
+                # Update usage database entry
+                supabase.table("profiles").update({"generations_used": used + 1}).eq("email", user_email).execute()
                 
-                # Render the markdown output directly to the UI
+                st.success("Campaign Ready!")
                 st.markdown(response.choices[0].message.content)
-                
+                st.button("Acknowledge & Refresh View")
             except Exception as e:
-                st.error(f"An error occurred: {e}")
+                st.error(f"Generation failure: {e}")
+
 
 
