@@ -5,7 +5,7 @@ from openai import OpenAI
 st.set_page_config(layout="wide")
 
 # 1. Page Configuration
-st.set_page_config(page_title="Instant Real Estate Copywriter", page_icon="🏠", layout="centered")
+st.set_page_config(page_title="Instant Real Estate Copywriter", page_icon="🏠", layout="wide")
 
 st.title("🏠 Real Estate Copy Generator")
 st.write("Turn raw property notes into a complete marketing suite instantly.")
