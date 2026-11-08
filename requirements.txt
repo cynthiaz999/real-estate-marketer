@@ -1,3 +1,4 @@
-streamlit>=1.35.0
-openai
-supabase
+streamlit>=1.40.0
+openai>=1.40.0
+supabase>=2.9.0
+streamlit-cookies-controller>=0.0.4
