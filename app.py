@@ -711,8 +711,9 @@ def main() -> None:
             tier, used = load_profile(user)
         else:
             remaining = load_guest_remaining(guest_id)
-    except Exception:
+    except Exception as e:
         st.error("We couldn't reach the database. Please try again in a moment.")
+        st.exception(e) ## temporary: shows the real error on the page
         st.stop()
 
     if user:
