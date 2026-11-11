@@ -20,7 +20,8 @@ try:
     SUPABASE_URL = st.secrets["SUPABASE_URL"]
     SUPABASE_KEY = st.secrets["SUPABASE_SERVICE_KEY"]
 except Exception:
-    st.error("Setup Error: one or more secrets are missing. See secrets_template.toml.")
+    st.error(f"Setup Error: {type(e).__name__}: {e}")
+   # st.error("Setup Error: one or more secrets are missing. See secrets_template.toml.")
     st.stop()
 
 # Plan definitions: one place to change prices-to-caps
