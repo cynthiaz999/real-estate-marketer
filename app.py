@@ -224,6 +224,12 @@ if st.button("Generate Marketing Suite ✨", type="primary", disabled=locked, ke
             "You are an expert real estate copywriter. Your job is to take raw property information "
             "and convert it into highly compelling marketing materials. Maintain a tone that is "
             f"{tone}. Structure your output strictly with clear markdown headers for each requested piece."
+            "Use only facts from the notes: never invent features, numbers or "
+            "neighborhood claims (use a placeholder where a detail is missing). "
+            "Follow Fair Housing rules: describe the property, not the ideal buyer, and "
+             "never reference race, religion, family status, disability or other "
+             "protected classes."
+
         )
 
         user_prompt = f"""
