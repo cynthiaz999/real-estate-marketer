@@ -57,15 +57,26 @@ st.write("Turn raw property notes into a complete marketing suite instantly.")
 
 
 # 4. Stripe: the source of truth for plan and billing period
+def _field(obj, name):
+    """Read a field from a Stripe object. Newer stripe-python versions are not
+    dicts (no .get), so use bracket access and treat a missing key as None."""
+    try:
+        return obj[name]
+    except (KeyError, AttributeError, TypeError):
+        return None
+
+
 def billing_period(sub):
     """Returns (start, end) unix timestamps. Newer Stripe API versions keep
     these on the subscription item instead of the subscription itself."""
-    start = sub.get("current_period_start")
-    end = sub.get("current_period_end")
+    start = _field(sub, "current_period_start")
+    end = _field(sub, "current_period_end")
     if start is None or end is None:
         item = sub["items"]["data"][0]
-        start = start if start is not None else item.get("current_period_start")
-        end = end if end is not None else item.get("current_period_end")
+        if start is None:
+            start = _field(item, "current_period_start")
+        if end is None:
+            end = _field(item, "current_period_end")
     return start or 0, end or 0
 
 
