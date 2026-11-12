@@ -79,6 +79,14 @@ if not email:
     st.error("Your Google account did not return an email address.")
     st.stop()
 
+# Google marks whether it has verified the email belongs to this person.
+# Block only an explicit "not verified" so a missing claim can't lock everyone out.
+if st.user.get("email_verified") in (False, "false", "False"):
+    st.error("Your Google account's email address isn't verified. "
+             "Please verify it with Google, then sign in again.")
+    st.button("Sign out", on_click=sign_out, key="signout_unverified")
+    st.stop()
+
 st.write("Turn raw property notes into a complete marketing suite instantly.")
 
 # Returning from Stripe Checkout (success_url has ?paid=1): drop the stale cached
