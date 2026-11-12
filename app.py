@@ -141,7 +141,7 @@ def _candidate_customer_ids(user_email: str, stored_cid):
 def _fetch_subscription(user_email: str, stored_cid):
     """Uncached Stripe lookup. Used directly right before creating a checkout."""
     info = {"active": False, "customer_id": None, "plan": None, "cap": 0,
-            "start": 0, "end": 0, "ever_subscribed": False}
+            "start": 0, "end": 0, "ever_subscribed": False, "past_due": False}
     for cid in _candidate_customer_ids(user_email, stored_cid):
         try:
             subs = stripe.Subscription.list(customer=cid, status="all", limit=10)
@@ -155,14 +155,17 @@ def _fetch_subscription(user_email: str, stored_cid):
         if subs.data:
             info["ever_subscribed"] = True
         for s in subs.data:
-            if s.status not in ("active", "trialing"):
+            # past_due = a renewal payment failed and Stripe is retrying. Keep access
+            # during that grace window; Stripe flips it to canceled/unpaid if retries fail.
+            if s.status not in ("active", "trialing", "past_due"):
                 continue
             price_id = s["items"]["data"][0]["price"]["id"]
             plan = PLANS.get(price_id, PLANS[BASIC_PRICE_ID])  # unknown price -> Basic cap
             if plan["cap"] > info["cap"]:  # if someone has two, the bigger plan wins
                 start, end = billing_period(s)
                 info.update(active=True, customer_id=cid, plan=plan["name"],
-                            cap=plan["cap"], start=start, end=end)
+                            cap=plan["cap"], start=start, end=end,
+                            past_due=(s.status == "past_due"))
     return info
 
 
@@ -365,6 +368,11 @@ with st.sidebar:
         st.session_state.pop("portal_url", None)
         st.rerun()
     st.button("Sign out", on_click=sign_out)
+
+if is_subscriber and sub["past_due"]:
+    st.warning("⚠️ Your last payment didn't go through. You still have access while we retry, "
+               "but please update your payment method to avoid losing it.")
+    manage_box("pastdue", "Update payment method →")
 
 if locked:
     if is_subscriber:
