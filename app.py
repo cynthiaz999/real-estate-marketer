@@ -72,7 +72,7 @@ if not st.user.is_logged_in:
     st.write("Turn raw property notes into a complete marketing suite instantly.")
     st.write(f"Sign in to get **{FREE_LIMIT} free generations**.")
     st.button("Sign in with Google", type="primary", on_click=st.login)
-     st.caption(
+    st.caption(
         "By signing in you agree to our "
         "[Terms of Service](https://property-marketer.com/terms.html) and "
         "[Privacy Policy](https://property-marketer.com/privacy.html)."
