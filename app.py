@@ -85,6 +85,10 @@ if st.user.get("email_verified") in (False, "false", "False"):
     st.error("Your Google account's email address isn't verified. "
              "Please verify it with Google, then sign in again.")
     st.button("Sign out", on_click=sign_out, key="signout_unverified")
+    st.caption(
+        "By signing in you agree to our "
+        "[Terms of Service](https://property-marketer.com/terms.html) and "
+        "[Privacy Policy](https://property-marketer.com/privacy.html)."
     st.stop()
 
 st.write("Turn raw property notes into a complete marketing suite instantly.")
