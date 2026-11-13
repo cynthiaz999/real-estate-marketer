@@ -72,6 +72,11 @@ if not st.user.is_logged_in:
     st.write("Turn raw property notes into a complete marketing suite instantly.")
     st.write(f"Sign in to get **{FREE_LIMIT} free generations**.")
     st.button("Sign in with Google", type="primary", on_click=st.login)
+     st.caption(
+        "By signing in you agree to our "
+        "[Terms of Service](https://property-marketer.com/terms.html) and "
+        "[Privacy Policy](https://property-marketer.com/privacy.html)."
+     )
     st.stop()
 
 email = (st.user.email or "").strip().lower()
@@ -85,10 +90,6 @@ if st.user.get("email_verified") in (False, "false", "False"):
     st.error("Your Google account's email address isn't verified. "
              "Please verify it with Google, then sign in again.")
     st.button("Sign out", on_click=sign_out, key="signout_unverified")
-    st.caption(
-        "By signing in you agree to our "
-        "[Terms of Service](https://property-marketer.com/terms.html) and "
-        "[Privacy Policy](https://property-marketer.com/privacy.html)."
     st.stop()
 
 st.write("Turn raw property notes into a complete marketing suite instantly.")
