@@ -16,6 +16,36 @@ OPENAI_MODEL = "gpt-4o-mini"
 # 1. Page Configuration (called once only)
 st.set_page_config(page_title="Instant Real Estate Copywriter", page_icon="🏠", layout="wide")
 
+st.markdown("""
+<style>
+/* Main action buttons: Generate, Sign in, Subscribe */
+button[kind="primary"],
+button[data-testid="stBaseButton-primary"] {
+    background-color: #2F6B4F;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 999px;
+    box-shadow: none;
+    font-weight: 600;
+}
+button[kind="primary"] p,
+button[data-testid="stBaseButton-primary"] p {
+    color: #FFFFFF;
+}
+button[kind="primary"]:hover,
+button[data-testid="stBaseButton-primary"]:hover {
+    background-color: #245640;
+    color: #FFFFFF;
+    border: none;
+}
+button[kind="primary"]:disabled,
+button[data-testid="stBaseButton-primary"]:disabled {
+    background-color: #94B3A3;
+    opacity: 0.7;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # 2. Load secrets and clients
 try:
     # timeout stops a hung request from freezing the UI; one retry at most
