@@ -1,7 +1,8 @@
 [theme]
-primaryColor = "#0066CC"          # Professional blue for primary accents/buttons
-backgroundColor = "#F8F9FA"       # Clean, soft light-grey background (replaces the black)
-secondaryBackgroundColor = "#FFFFFF" # Crisp white for cards, sidebars, or input fields
-textColor = "#1A1D20"             # Deep slate text (highly legible and professional)
-font = "sans serif"               # Clean, modern typography
-borderRadius = "8px"              # Smooth, friendly rounded edges for widgets
+primaryColor = "#0066CC"             # Buttons and accents (professional blue)
+backgroundColor = "#F8F9FA"          # Soft light-grey page background
+secondaryBackgroundColor = "#EEF2F7" # Sidebar and input fields
+textColor = "#1A1D20"                # Deep slate text
+font = "sans serif"
+baseRadius = "full"                  # Pill-shaped buttons. Try "large" for softly rounded rectangles
+ 
