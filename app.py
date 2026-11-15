@@ -18,7 +18,7 @@ OPENAI_MODEL = "gpt-4o-mini"
 ASSETS = Path(__file__).parent / "assets"
 
 # 1. Page Configuration (called once only)
-st.set_page_config(page_title="Prop Marketer", page_icon=str(ASSETS / "favicon.png"), layout="wide")
+st.set_page_config(page_title="Prop Marketer", page_icon=str(ASSETS / "favicon.png"), layout="wide", initial_sidebar_state="expanded")
 
 BRAND_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
