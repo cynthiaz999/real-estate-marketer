@@ -36,7 +36,10 @@ html, body, .stApp, .stApp button, .stApp input, .stApp textarea, .stApp [data-b
   font-family: 'Roboto', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 /* Quiet the Streamlit chrome */
-#MainMenu, footer, [data-testid="stToolbar"], [data-testid="stHeaderActionElements"] { display: none; }
+#MainMenu, footer,
+[data-testid="stMainMenu"],
+[data-testid="stAppDeployButton"],
+[data-testid="stToolbarActions"] { display: none; }
 header[data-testid="stHeader"] { background: transparent; }
 .block-container, [data-testid="stMainBlockContainer"] {
   max-width: 1080px;
