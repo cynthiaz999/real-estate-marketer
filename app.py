@@ -1,5 +1,7 @@
+import base64
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 
 import stripe
 import streamlit as st
@@ -13,38 +15,120 @@ MAX_NOTES_CHARS = 6000       # cap on pasted property notes
 MAX_OUTPUT_TOKENS = 3000     # cap on generated copy length
 OPENAI_MODEL = "gpt-4o-mini"
 
-# 1. Page Configuration (called once only)
-st.set_page_config(page_title="Instant Real Estate Copywriter", page_icon="🏠", layout="wide")
+ASSETS = Path(__file__).parent / "assets"
 
-st.markdown("""
-<style>
-/* Main action buttons: Generate, Sign in, Subscribe */
-button[kind="primary"],
-button[data-testid="stBaseButton-primary"] {
-    background-color: #2F6B4F;
-    color: #FFFFFF;
-    border: none;
-    border-radius: 999px;
-    box-shadow: none;
-    font-weight: 600;
+# 1. Page Configuration (called once only)
+st.set_page_config(page_title="Prop Marketer", page_icon=str(ASSETS / "favicon.png"), layout="wide")
+
+BRAND_CSS = """
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+:root {
+  --pm-forest: #2F6B4F;
+  --pm-forest-dark: #245640;
+  --pm-sage: #7DAC6E;
+  --pm-mint: #8EC9A7;
+  --pm-bg: #EDF5F0;
+  --pm-line: #CADCD1;
+  --pm-ink: #1F2D26;
+  --pm-muted: #566A5F;
 }
-button[kind="primary"] p,
-button[data-testid="stBaseButton-primary"] p {
-    color: #FFFFFF;
+html, body, .stApp, .stApp button, .stApp input, .stApp textarea, .stApp [data-baseweb] {
+  font-family: 'Roboto', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
-button[kind="primary"]:hover,
-button[data-testid="stBaseButton-primary"]:hover {
-    background-color: #245640;
-    color: #FFFFFF;
-    border: none;
+/* Quiet the Streamlit chrome */
+#MainMenu, footer, [data-testid="stToolbar"], [data-testid="stHeaderActionElements"] { display: none; }
+header[data-testid="stHeader"] { background: transparent; }
+.block-container, [data-testid="stMainBlockContainer"] {
+  max-width: 1080px;
+  padding-top: 2.5rem;
+  padding-bottom: 4rem;
 }
-button[kind="primary"]:disabled,
-button[data-testid="stBaseButton-primary"]:disabled {
-    background-color: #94B3A3;
-    opacity: 0.7;
+/* Headings follow the light wordmark in the logo */
+.stApp h1, .stApp h2, .stApp h3 {
+  color: var(--pm-forest-dark);
+  font-weight: 300;
+  letter-spacing: -0.01em;
 }
-</style>
-""", unsafe_allow_html=True)
+.stApp h3 { font-weight: 400; }
+[data-testid="stSidebar"] { border-right: 1px solid var(--pm-line); }
+[data-testid="stSidebar"] [data-testid="stLogo"] { height: 2.4rem; }
+/* Short rule above headings, taken from the banner */
+.pm-rule { width: 56px; height: 3px; border-radius: 2px; background: var(--pm-mint); margin: 0 0 1.1rem 0; }
+.pm-hero { font-size: clamp(2rem, 4.2vw, 3rem); font-weight: 300; line-height: 1.12; color: var(--pm-forest-dark); margin: 0 0 1rem 0; padding: 0; }
+.pm-h1 { font-size: clamp(1.7rem, 3vw, 2.3rem); font-weight: 300; line-height: 1.15; color: var(--pm-forest-dark); margin: 0 0 0.5rem 0; padding: 0; }
+.pm-lead { font-size: 1.1rem; line-height: 1.6; color: var(--pm-muted); max-width: 34rem; margin: 0 0 1.4rem 0; }
+.pm-section { font-size: 1.5rem; font-weight: 300; color: var(--pm-forest-dark); margin: 3rem 0 1rem 0; padding: 0; }
+/* Buttons */
+button[kind="primary"], button[data-testid="stBaseButton-primary"] {
+  background-color: var(--pm-forest); color: #FFFFFF; border: none; border-radius: 999px;
+  box-shadow: none; font-weight: 500; padding: 0.55rem 1.6rem;
+}
+button[kind="primary"] p, button[data-testid="stBaseButton-primary"] p { color: #FFFFFF; }
+button[kind="primary"]:hover, button[data-testid="stBaseButton-primary"]:hover { background-color: var(--pm-forest-dark); color: #FFFFFF; border: none; }
+button[kind="primary"]:focus-visible, button[data-testid="stBaseButton-primary"]:focus-visible { outline: 3px solid var(--pm-mint); outline-offset: 2px; }
+button[kind="primary"]:disabled, button[data-testid="stBaseButton-primary"]:disabled { background-color: #94B3A3; opacity: 0.7; }
+button[kind="secondary"], button[data-testid="stBaseButton-secondary"],
+[data-testid="stDownloadButton"] button, [data-testid="stLinkButton"] a {
+  background: transparent; color: var(--pm-forest); border: 1px solid var(--pm-forest);
+  border-radius: 999px; font-weight: 500;
+}
+button[kind="secondary"]:hover, button[data-testid="stBaseButton-secondary"]:hover,
+[data-testid="stDownloadButton"] button:hover, [data-testid="stLinkButton"] a:hover {
+  background: #DCEBE2; color: var(--pm-forest-dark); border-color: var(--pm-forest-dark);
+}
+[data-testid="stAlert"] { border-radius: 14px; }
+[data-testid="stProgress"] > div > div > div { background-color: var(--pm-line); }
+/* Work surfaces */
+.st-key-input_card, .st-key-results_card {
+  background: #FFFFFF; border: 1px solid var(--pm-line); border-radius: 20px; padding: 1.5rem 1.75rem 1.75rem;
+}
+.st-key-results_card { margin-top: 1.5rem; }
+.st-key-results_card h1, .st-key-results_card h2, .st-key-results_card h3, .st-key-results_card h4 {
+  font-size: 1.15rem; font-weight: 500; color: var(--pm-forest-dark); margin-top: 1.4rem;
+}
+/* Landing page */
+.pm-banner { display: block; width: 100%; height: auto; border-radius: 22px; margin-bottom: 3rem; }
+.pm-panel { background: #FFFFFF; border: 1px solid var(--pm-line); border-radius: 20px; padding: 1.4rem 1.6rem; }
+.pm-panel h3 { font-size: 1.05rem; font-weight: 500; margin: 0 0 0.4rem 0; padding: 0; }
+.pm-list { list-style: none; margin: 0; padding: 0; }
+.pm-list li { padding: 0.62rem 0; border-top: 1px solid var(--pm-line); color: var(--pm-ink); line-height: 1.4; }
+.pm-list li:first-child { border-top: none; }
+.pm-list b { font-weight: 500; }
+.pm-list span { color: var(--pm-muted); }
+.pm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+.pm-step { border-top: 3px solid var(--pm-mint); padding-top: 0.9rem; }
+.pm-step b { display: block; font-size: 1.1rem; font-weight: 500; color: var(--pm-forest-dark); margin-bottom: 0.3rem; }
+.pm-step p { margin: 0; color: var(--pm-muted); line-height: 1.55; }
+.pm-plans { display: grid; grid-template-columns: repeat(3, 1fr); background: #FFFFFF; border: 1px solid var(--pm-line); border-radius: 20px; overflow: hidden; }
+.pm-plan { padding: 1.4rem 1.6rem; border-left: 1px solid var(--pm-line); }
+.pm-plan:first-child { border-left: none; }
+.pm-plan .n { font-weight: 500; color: var(--pm-forest-dark); }
+.pm-plan .p { font-size: 2.2rem; font-weight: 300; color: var(--pm-forest); line-height: 1.2; }
+.pm-plan .p small { font-size: 0.95rem; color: var(--pm-muted); margin-left: 0.2rem; }
+.pm-plan .d { color: var(--pm-muted); }
+.pm-note { color: var(--pm-muted); line-height: 1.6; max-width: 46rem; margin: 2.5rem 0 0 0; }
+.pm-foot { color: var(--pm-muted); font-size: 0.9rem; margin-top: 1.2rem; }
+.pm-foot a { color: var(--pm-forest); }
+@media (max-width: 760px) {
+  .pm-grid, .pm-plans { grid-template-columns: 1fr; }
+  .pm-plan { border-left: none; border-top: 1px solid var(--pm-line); }
+  .pm-plan:first-child { border-top: none; }
+}
+"""
+st.markdown("<style>" + "\n".join(l for l in BRAND_CSS.splitlines() if l.strip()) + "</style>",
+            unsafe_allow_html=True)
+
+
+def html(markup: str):
+    """Render a block of HTML. Flattened to one line so Markdown never treats it as code."""
+    st.markdown(" ".join(l.strip() for l in markup.splitlines() if l.strip()), unsafe_allow_html=True)
+
+
+@st.cache_resource
+def asset_uri(name: str) -> str:
+    mime = {"webp": "image/webp", "png": "image/png"}[name.rsplit(".", 1)[-1]]
+    return f"data:{mime};base64," + base64.b64encode((ASSETS / name).read_bytes()).decode()
+
 
 # 2. Load secrets and clients
 try:
@@ -64,8 +148,8 @@ except Exception as e:
 
 # Plan definitions: one place to change prices-to-caps
 PLANS = {
-    BASIC_PRICE_ID: {"name": "Basic", "cap": 30, "label": "Basic: $29/mo, 30 generations"},
-    PRO_PRICE_ID: {"name": "Pro", "cap": 150, "label": "Pro: $59/mo, 150 generations"},
+    BASIC_PRICE_ID: {"name": "Basic", "price": "$29", "cap": 30, "label": "Basic: $29/mo, 30 generations"},
+    PRO_PRICE_ID: {"name": "Pro", "price": "$59", "cap": 150, "label": "Pro: $59/mo, 150 generations"},
 }
 
 
@@ -95,19 +179,73 @@ def sign_out():
     st.logout()
 
 
-# 3. Login gate: nothing below runs unless the user is signed in
-st.title("🏠 Real Estate Copy Generator")
+# 3. Landing page and login gate: nothing below runs unless the user is signed in
+TERMS_URL = "https://property-marketer.com/terms.html"
+PRIVACY_URL = "https://property-marketer.com/privacy.html"
+
+
+def render_landing():
+    html(f'<img class="pm-banner" src="{asset_uri("banner.webp")}" '
+         'alt="Prop Marketer. From listing details to posts that sell.">')
+
+    left, right = st.columns([1.1, 1], gap="large")
+    with left:
+        html("""
+        <div class="pm-rule"></div>
+        <h1 class="pm-hero">Seven listing posts from one set of notes.</h1>
+        <p class="pm-lead">Paste the details you already have. Prop Marketer writes the social posts,
+        email and flyer text for your listing, in the tone you choose.</p>
+        """)
+        st.button("Sign in with Google", type="primary", on_click=st.login)
+        st.caption(f"{FREE_LIMIT} free generations. No credit card needed.")
+    with right:
+        html("""
+        <div class="pm-panel">
+        <h3>Every generation includes</h3>
+        <ul class="pm-list">
+        <li><b>Instagram post</b> <span>with hashtags and a DM call to action</span></li>
+        <li><b>Facebook post</b> <span>that tells the story of the home</span></li>
+        <li><b>LinkedIn post</b> <span>on value and standout features</span></li>
+        <li><b>Reels / TikTok script</b> <span>30 seconds, with voiceover</span></li>
+        <li><b>Just Listed summary</b> <span>a scannable feature list</span></li>
+        <li><b>Email blast</b> <span>with subject line and button text</span></li>
+        <li><b>Print flyer text</b> <span>headline, specs and contact footer</span></li>
+        </ul>
+        </div>
+        """)
+
+    html("""
+    <h2 class="pm-section">How it works</h2>
+    <div class="pm-grid">
+    <div class="pm-step"><b>1. Paste your notes</b><p>MLS data, bullet points or rough text, up to 6,000 characters.</p></div>
+    <div class="pm-step"><b>2. Choose a tone</b><p>Enthusiastic and luxury, casual and warm, or professional and urgent.</p></div>
+    <div class="pm-step"><b>3. Review and post</b><p>Check every detail, fill in the [PLACEHOLDERS], then copy or download.</p></div>
+    </div>
+    """)
+
+    plan_cells = [f'<div class="pm-plan"><div class="n">Free</div><div class="p">$0</div>'
+                  f'<div class="d">{FREE_LIMIT} generations to try it</div></div>']
+    for plan in PLANS.values():
+        plan_cells.append(
+            f'<div class="pm-plan"><div class="n">{plan["name"]}</div>'
+            f'<div class="p">{plan["price"]}<small>/month</small></div>'
+            f'<div class="d">{plan["cap"]} generations a month</div></div>')
+    html('<h2 class="pm-section">Pricing</h2><div class="pm-plans">' + "".join(plan_cells) + "</div>")
+
+    html(f"""
+    <p class="pm-note">Posts are written from the facts in your notes only, and missing details are left as
+    placeholders instead of guessed. The writing is also guided by fair housing rules. You review every post
+    before it goes out.</p>
+    <p class="pm-foot">By signing in you agree to our <a href="{TERMS_URL}">Terms of Service</a> and
+    <a href="{PRIVACY_URL}">Privacy Policy</a>.</p>
+    """)
+
 
 if not st.user.is_logged_in:
-    st.write("Turn raw property notes into a complete marketing suite instantly.")
-    st.write(f"Sign in to get **{FREE_LIMIT} free generations**.")
-    st.button("Sign in with Google", type="primary", on_click=st.login)
-    st.caption(
-        "By signing in you agree to our "
-        "[Terms of Service](https://property-marketer.com/terms.html) and "
-        "[Privacy Policy](https://property-marketer.com/privacy.html)."
-     )
+    render_landing()
     st.stop()
+
+st.logo(asset_uri("logo.png"), size="large")
 
 email = (st.user.email or "").strip().lower()
 if not email:
@@ -122,7 +260,11 @@ if st.user.get("email_verified") in (False, "false", "False"):
     st.button("Sign out", on_click=sign_out, key="signout_unverified")
     st.stop()
 
-st.write("Turn raw property notes into a complete marketing suite instantly.")
+html("""
+<div class="pm-rule"></div>
+<h1 class="pm-h1">Create your listing posts</h1>
+<p class="pm-lead">Paste your property notes, pick a tone, and get seven posts ready to edit and publish.</p>
+""")
 
 # Returning from Stripe Checkout (success_url has ?paid=1): drop the stale cached
 # subscription so the new plan shows immediately instead of after the 60s cache.
@@ -288,7 +430,7 @@ locked = remaining == 0
 
 if just_paid:
     if is_subscriber:
-        st.success(f"🎉 Welcome to the {sub['plan']} plan! Your subscription is active.")
+        st.success(f"Welcome to the {sub['plan']} plan! Your subscription is active.")
     else:
         st.info("Payment received. Your plan is still being activated. "
                 "Click **Refresh status** in the sidebar in a few seconds.")
@@ -395,13 +537,15 @@ with st.sidebar:
     st.subheader("Account")
     st.caption(email)
     if is_subscriber:
-        st.success(f"{sub['plan']} plan active ✅")
+        st.success(f"{sub['plan']} plan active")
         st.write(f"Used **{paid_used} of {sub['cap']}** this month")
+        st.progress(min(paid_used / sub["cap"], 1.0))
         if sub["end"]:
             st.caption(f"Resets {fmt_date(sub['end'])}")
         manage_box("sidebar", "Open billing portal →")
     else:
         st.write(f"Free generations left: **{remaining} of {FREE_LIMIT}**")
+        st.progress(remaining / FREE_LIMIT)
         if not locked:
             upgrade_box("sidebar")
         manage_box("sidebar", "Open billing portal →")
@@ -413,7 +557,7 @@ with st.sidebar:
     st.button("Sign out", on_click=sign_out)
 
 if is_subscriber and sub["past_due"]:
-    st.warning("⚠️ Your last payment didn't go through. You still have access while we retry, "
+    st.warning("Your last payment didn't go through. You still have access while we retry, "
                "but please update your payment method to avoid losing it.")
     manage_box("pastdue", "Update payment method →")
 
@@ -429,16 +573,17 @@ if locked:
         upgrade_box("main")
 
 # 9. User Input Section
-st.subheader("Property Details")
-raw_description = st.text_area(
-    "Paste your raw property notes, bullet points, or MLS data here:",
-    height=200,
-    max_chars=MAX_NOTES_CHARS,
-    help=f"Up to {MAX_NOTES_CHARS:,} characters.",
-    placeholder="Example: 3 bed, 2.5 bath in North Austin. Built 2018. Quartz countertops, huge backyard, cul-de-sac. Walkable to coffee shop...",
-)
-
-tone = st.selectbox("Select Marketing Tone", ["Enthusiastic & Luxury", "Casual & Warm", "Professional & Urgent"])
+input_card = st.container(key="input_card")
+with input_card:
+    st.subheader("Property details")
+    raw_description = st.text_area(
+        "Paste your raw property notes, bullet points, or MLS data here:",
+        height=200,
+        max_chars=MAX_NOTES_CHARS,
+        help=f"Up to {MAX_NOTES_CHARS:,} characters.",
+        placeholder="Example: 3 bed, 2.5 bath in North Austin. Built 2018. Quartz countertops, huge backyard, cul-de-sac. Walkable to coffee shop...",
+    )
+    tone = st.selectbox("Marketing tone", ["Enthusiastic & Luxury", "Casual & Warm", "Professional & Urgent"])
 
 # 10. Prompts
 SYSTEM_PROMPT_TEMPLATE = """You are an expert real estate copywriter. Your job is to take raw property \
@@ -496,7 +641,7 @@ def run_generation(notes: str, selected_tone: str) -> bool:
         return True
 
     try:
-        with st.spinner("AI is crafting your copy..."):
+        with st.spinner("Writing your posts..."):
             response = client.chat.completions.create(
                 model=OPENAI_MODEL,
                 messages=[
@@ -526,33 +671,36 @@ def run_generation(notes: str, selected_tone: str) -> bool:
 
 
 # 11. Generation Logic
-if st.button("Generate Marketing Suite ✨", type="primary", disabled=locked, key="generate"):
-    notes = raw_description.strip()
-    if not notes:
-        st.error("Please provide some property details first.")
-    elif len(notes) > MAX_NOTES_CHARS:
-        st.error(f"Please keep your notes under {MAX_NOTES_CHARS:,} characters "
-                 f"(currently {len(notes):,}).")
-    elif run_generation(notes, tone):
-        st.rerun()
+with input_card:
+    if st.button("Generate posts", type="primary", disabled=locked, key="generate"):
+        notes = raw_description.strip()
+        if not notes:
+            st.error("Please provide some property details first.")
+        elif len(notes) > MAX_NOTES_CHARS:
+            st.error(f"Please keep your notes under {MAX_NOTES_CHARS:,} characters "
+                     f"(currently {len(notes):,}).")
+        elif run_generation(notes, tone):
+            st.rerun()
 
 # 12. Results (rendered from session state, so they persist across reruns)
 result = st.session_state.get("result")
 if result and result.get("email") == email:
-    st.success("Generation complete!")
-    st.warning(
-        "**Review before publishing.** This is an AI-generated draft. Check every detail against your "
-        "listing (features, measurements, price, school names) and fill in any [PLACEHOLDERS]. "
-        "You are responsible for making sure published copy is accurate and complies with "
-        "fair housing and advertising rules."
-    )
-    st.caption(f"Tone: {result['tone']}")
-    st.download_button(
-        "⬇️ Download as text file",
-        data=result["text"],
-        file_name="listing-marketing-copy.txt",
-        mime="text/plain",
-        on_click="ignore",  # don't rerun the app when downloading
-    )
-    st.divider()
-    st.markdown(result["text"])
+    with st.container(key="results_card"):
+        st.success("Your posts are ready.")
+        st.warning(
+            "**Review before publishing.** This is an AI-generated draft. Check every detail against your "
+            "listing (features, measurements, price, school names) and fill in any [PLACEHOLDERS]. "
+            "You are responsible for making sure published copy is accurate and complies with "
+            "fair housing and advertising rules."
+        )
+        st.caption(f"Tone: {result['tone']}")
+        st.download_button(
+            "Download as text file",
+            data=result["text"],
+            file_name="listing-marketing-copy.txt",
+            mime="text/plain",
+            on_click="ignore",  # don't rerun the app when downloading
+        )
+        st.divider()
+        st.markdown(result["text"])
+
