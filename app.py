@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -527,12 +528,16 @@ def manage_box(key: str, link_label: str):
     if can_manage and st.button("Manage subscription", key=f"manage_{key}"):
         try:
             portal = stripe.billing_portal.Session.create(customer=customer_id, return_url=APP_URL)
-            st.session_state["portal_url"] = portal.url
         except Exception:
             logger.exception("Billing portal creation failed")
             st.error("We couldn't open the billing portal right now. Please try again in a moment.")
-    if can_manage and st.session_state.get("portal_url"):
-        st.link_button(link_label, st.session_state["portal_url"])
+        else:
+            # Send the browser straight to Stripe; no second click needed
+            st.html(f"<script>window.location.href = {json.dumps(portal.url)};</script>",
+                    unsafe_allow_javascript=True)
+            st.caption("Opening billing portal…")
+            # Fallback in case the browser blocks the redirect
+            st.link_button(link_label, portal.url)
 
 
 # 8. Sidebar: account status
