@@ -1,5 +1,4 @@
 import base64
-import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,7 +18,7 @@ OPENAI_MODEL = "gpt-4o-mini"
 ASSETS = Path(__file__).parent / "assets"
 
 # 1. Page Configuration (called once only)
-st.set_page_config(page_title="Prop Marketer", page_icon=str(ASSETS / "favicon.png"), layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Prop Marketer", page_icon=str(ASSETS / "favicon.png"), layout="wide")
 
 BRAND_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -37,10 +36,7 @@ html, body, .stApp, .stApp button, .stApp input, .stApp textarea, .stApp [data-b
   font-family: 'Roboto', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 /* Quiet the Streamlit chrome */
-#MainMenu, footer,
-[data-testid="stMainMenu"],
-[data-testid="stAppDeployButton"],
-[data-testid="stToolbarActions"] { display: none; }
+#MainMenu, footer, [data-testid="stToolbar"], [data-testid="stHeaderActionElements"] { display: none; }
 header[data-testid="stHeader"] { background: transparent; }
 .block-container, [data-testid="stMainBlockContainer"] {
   max-width: 1080px;
@@ -186,6 +182,7 @@ def sign_out():
 # 3. Landing page and login gate: nothing below runs unless the user is signed in
 TERMS_URL = "https://property-marketer.com/terms.html"
 PRIVACY_URL = "https://property-marketer.com/privacy.html"
+WEBSITE_URL = "https://property-marketer.com"
 
 
 def render_landing():
@@ -200,8 +197,17 @@ def render_landing():
         <p class="pm-lead">Paste the details you already have. Prop Marketer writes the social posts,
         email and flyer text for your listing, in the tone you choose.</p>
         """)
-        st.button("Sign in with Google", type="primary", on_click=st.login)
-        st.caption(f"{FREE_LIMIT} free generations. No credit card needed.")
+        # Google handles both new and returning users, so both buttons start the
+        # same login. Separate buttons just make the choice obvious.
+        btn_create, btn_signin, _ = st.columns([1.35, 1, 0.9], gap="small")
+        with btn_create:
+            st.button("Create account", type="primary", on_click=st.login,
+                      key="landing_create", use_container_width=True)
+        with btn_signin:
+            st.button("Sign in", on_click=st.login,
+                      key="landing_signin", use_container_width=True)
+        st.caption(f"New here? Create an account with Google and get {FREE_LIMIT} free generations. "
+                   "No credit card needed. Already have an account? Sign in.")
     with right:
         html("""
         <div class="pm-panel">
@@ -240,12 +246,19 @@ def render_landing():
     <p class="pm-note">Posts are written from the facts in your notes only, and missing details are left as
     placeholders instead of guessed. The writing is also guided by fair housing rules. You review every post
     before it goes out.</p>
-    <p class="pm-foot">By signing in you agree to our <a href="{TERMS_URL}">Terms of Service</a> and
+    <p class="pm-foot">By signing in or creating an account you agree to our <a href="{TERMS_URL}">Terms of Service</a> and
     <a href="{PRIVACY_URL}">Privacy Policy</a>.</p>
     """)
 
 
 if not st.user.is_logged_in:
+    # The website's Create account / Sign in buttons link here with ?start=login,
+    # so visitors go straight to Google without seeing this page first.
+    # The session flag makes sure we send them to Google only once per visit.
+    if st.query_params.get("start") == "login" and not st.session_state.get("auto_login_sent"):
+        st.session_state["auto_login_sent"] = True
+        st.login()
+        st.stop()
     render_landing()
     st.stop()
 
@@ -263,6 +276,8 @@ if st.user.get("email_verified") in (False, "false", "False"):
              "Please verify it with Google, then sign in again.")
     st.button("Sign out", on_click=sign_out, key="signout_unverified")
     st.stop()
+
+st.link_button("← Back to property-marketer.com", WEBSITE_URL, key="back_main")
 
 html("""
 <div class="pm-rule"></div>
@@ -528,20 +543,17 @@ def manage_box(key: str, link_label: str):
     if can_manage and st.button("Manage subscription", key=f"manage_{key}"):
         try:
             portal = stripe.billing_portal.Session.create(customer=customer_id, return_url=APP_URL)
+            st.session_state["portal_url"] = portal.url
         except Exception:
             logger.exception("Billing portal creation failed")
             st.error("We couldn't open the billing portal right now. Please try again in a moment.")
-        else:
-            # Send the browser straight to Stripe; no second click needed
-            st.html(f"<script>window.location.href = {json.dumps(portal.url)};</script>",
-                    unsafe_allow_javascript=True)
-            st.caption("Opening billing portal…")
-            # Fallback in case the browser blocks the redirect
-            st.link_button(link_label, portal.url)
+    if can_manage and st.session_state.get("portal_url"):
+        st.link_button(link_label, st.session_state["portal_url"])
 
 
 # 8. Sidebar: account status
 with st.sidebar:
+    st.link_button("← Back to website", WEBSITE_URL, key="back_sidebar", use_container_width=True)
     st.subheader("Account")
     st.caption(email)
     if is_subscriber:
